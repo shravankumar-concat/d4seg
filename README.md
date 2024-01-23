@@ -31,8 +31,8 @@ python infer_and_postprocess.py path/to/input_image.jpg --model1_ckpt path/to/mo
 ```
 
 ## Models
-    Model 1: ![model1.ckpt](checkpoints/model_1_20230823_133015_last.ckpt)
-    Model 2: ![model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
+    Model 1: [model1.ckpt](checkpoints/model_1_20230823_133015_last.ckpt)
+    Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
 ### Output
 The script generates two output images:
 
