@@ -34,15 +34,49 @@ python infer_and_postprocess.py path/to/input_image.jpg --model1_ckpt path/to/mo
 ```
 
 ## Models
+Model Naming Cinvention:
+
+arch
+resolution
+epoch
+metrics
+part_number
+MM_YY
+
 Model 1: [model1.ckpt](checkpoints/model_1_20230823_133015_last.ckpt)
+
+Model Run Details: 
+https://wandb.ai/shravanp-ai/d4seg_mitb5_adam_loss_DF_1024_v4/runs/lc3wri2c/overview?workspace=user-shravanp-ai
+
+arch : Unet - MiT-B5
+resolution: 1024
+epoch: 200
+metrics: 0.9928 [Validation Dice Coeff]
+part_number: 01 [Model1]
+MM_YY: 0823
+
+Recommended Name: unet_mitb5_1024_200_0.9928_01_0823.ckpt
 
 [OneDrive - Model1](https://nuncsystems-my.sharepoint.com/:f:/p/shravan_p/EquCz6-QASpJkuLKLyEurGYB0_zlSBogy91uEGC4DS6prA?e=u5ldeo)
 
 Place it in here: 
 
-    Ex: checkpoints/model_1_20230823_133015_last.ckpt
+    Ex: checkpoints/unet_mitb5_1024_200_0.99_01_08_23.ckpt
 
 Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
+
+Model Run Details: 
+https://wandb.ai/shravanp-ai/predmask_d4seg_v13/runs/rnu2r6tr/overview?workspace=user-shravanp-ai
+
+arch : Unet - Plain
+resolution: 1024
+epoch: 195
+metrics: 0.0002 [MSE]
+part_number: 02 [Model2]
+MM_YY: 0124
+
+Recommended Name: unet_plain_1024_195_0.0002_02_0124.ckpt
+
 
 [OneDrive - Model2](https://nuncsystems-my.sharepoint.com/:f:/p/shravan_p/EqXHbL4_UABOs3V7JdwqRksBfsUUpISL0jgACLKxFOyzyg?e=MT9vUE)
 
