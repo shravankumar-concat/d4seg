@@ -49,6 +49,9 @@ Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
 Place it in here: 
 
     Ex: checkpoints/model_2_20240102_155705_last.ckpt
+    
+[Google Drive](https://drive.google.com/file/d/14P6nz2qHNxt3LnnomAlCsSgDXF1XSatl/view?usp=drive_link)
+
 ### Output
 The script generates two output images:
 
