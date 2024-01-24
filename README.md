@@ -36,8 +36,16 @@ python infer_and_postprocess.py path/to/input_image.jpg --model1_ckpt path/to/mo
 ## Models
 Model 1: [model1.ckpt](checkpoints/model_1_20230823_133015_last.ckpt)
 
-Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
+[OneDrive - Model1](https://nuncsystems-my.sharepoint.com/:f:/p/shravan_p/EquCz6-QASpJkuLKLyEurGYB0_zlSBogy91uEGC4DS6prA?e=u5ldeo)
 
+Place it in here: 
+    Ex: checkpoints/model_1_20230823_133015_last.ckpt
+
+Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
+[OneDrive - Model2](https://nuncsystems-my.sharepoint.com/:f:/p/shravan_p/EqXHbL4_UABOs3V7JdwqRksBfsUUpISL0jgACLKxFOyzyg?e=MT9vUE)
+
+Place it in here: 
+    Ex: checkpoints/model_2_20240102_155705_last.ckpt
 ### Output
 The script generates two output images:
 
