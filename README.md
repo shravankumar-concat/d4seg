@@ -53,7 +53,7 @@ resolution: 1024
 epoch: 200
 metrics: 0.9928 [Validation Dice Coeff]
 part_number: 01 [Model1]
-MM_YY: 0823
+MMYY: 0823
 
 Recommended Name: unet_mitb5_1024_200_0.9928_01_0823.ckpt
 
@@ -61,7 +61,7 @@ Recommended Name: unet_mitb5_1024_200_0.9928_01_0823.ckpt
 
 Place it in here: 
 
-    Ex: checkpoints/unet_mitb5_1024_200_0.99_01_08_23.ckpt
+    Ex: checkpoints/unet_mitb5_1024_200_0.9928_01_0823.ckpt
 
 Model 2: [model2.ckpt](checkpoints/model_2_20240102_155705_last.ckpt)
 
@@ -73,7 +73,7 @@ resolution: 1024
 epoch: 195
 metrics: 0.0002 [MSE]
 part_number: 02 [Model2]
-MM_YY: 0124
+MMYY: 0124
 
 Recommended Name: unet_plain_1024_195_0.0002_02_0124.ckpt
 
@@ -82,8 +82,10 @@ Recommended Name: unet_plain_1024_195_0.0002_02_0124.ckpt
 
 Place it in here: 
 
-    Ex: checkpoints/model_2_20240102_155705_last.ckpt
+    Ex: checkpoints/unet_plain_1024_195_0.0002_02_0124.ckpt
     
+Or download from GDRIVE: 
+
 [Google Drive](https://drive.google.com/file/d/14P6nz2qHNxt3LnnomAlCsSgDXF1XSatl/view?usp=drive_link)
 
 ### Output
