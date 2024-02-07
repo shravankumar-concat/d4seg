@@ -338,12 +338,8 @@ def infer_and_post_process(input_image_path, model1, model2, device, bg_image_pa
     os.remove("temp_out.png")
     
     return image_alpha, glass_image
-
-
 def main(args):
-    device = torch.device("cuda" 
-                          if torch.cuda.is_available() and not args.no_cuda 
-                          else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     
     # Stage - I
     model1 = get_model1(args.model1_ckpt)
@@ -355,10 +351,16 @@ def main(args):
     model2 = SegFormerLightning(model_config2)
     model2.load_state_dict(pretrained_model2['state_dict'])
     model2 = model2.to(device)
+
+    # image_alpha, glass_image = infer_and_post_process(
+    #     args.input_image_path, model1, model2, device, save_dir="results", inhouse_dir=None
+    # )
     
     input_image = Image.open(args.input_image_path)
+    
     # Get the width and height
     width, height = input_image.size
+
     
     # Record start time
     start_time = time.time()
@@ -395,8 +397,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Image Processing and Segmentation")
     parser.add_argument("input_image_path", type=str, help="Path to the input image")
-    parser.add_argument("--model1_ckpt", type=str, default="checkpoints/model_1_20230823_133015_last.ckpt", help="Path to the model1 checkpoint")
-    parser.add_argument("--model2_ckpt", type=str, default="checkpoints/model_2_20240102_155705_last.ckpt", help="Path to the model2 checkpoint")
+    parser.add_argument("--model1_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/production_code_base/d4seg/checkpoints/model_1_20230823_133015_last.ckpt", help="Path to the model1 checkpoint")
+    parser.add_argument("--model2_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/production_code_base/d4seg/checkpoints/model_2_20240102_155705_last.ckpt", help="Path to the model2 checkpoint")
     parser.add_argument("--image_alpha_path", type=str, default="image_alpha.png", help="Path to save the image_alpha output")
     parser.add_argument("--glass_image_path", type=str, default="glass_image.png", help="Path to save the glass_image output")
     parser.add_argument("--no_cuda", action="store_true", help="Flag to disable CUDA (use CPU)")

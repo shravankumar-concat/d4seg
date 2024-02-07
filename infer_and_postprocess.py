@@ -237,7 +237,8 @@ def generate_glass_image(bgra):
     contourMask = cv2.erode(contourMask.copy(), kernel, iterations=2)
 
     # r, g, b = 162, 194, 194
-    r, g, b = 111, 133, 133
+    # r, g, b = 111, 133, 133
+    b, g, r = 111, 133, 133
     a_value = 200
     
     glassImg = np.full_like(bgra[:, :, :3], (b, g, r))
@@ -338,8 +339,12 @@ def infer_and_post_process(input_image_path, model1, model2, device, bg_image_pa
     os.remove("temp_out.png")
     
     return image_alpha, glass_image
+
+
 def main(args):
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    device = torch.device("cuda" 
+                          if torch.cuda.is_available() and not args.no_cuda 
+                          else "cpu")
     
     # Stage - I
     model1 = get_model1(args.model1_ckpt)
@@ -351,10 +356,14 @@ def main(args):
     model2 = SegFormerLightning(model_config2)
     model2.load_state_dict(pretrained_model2['state_dict'])
     model2 = model2.to(device)
-
-    # image_alpha, glass_image = infer_and_post_process(
-    #     args.input_image_path, model1, model2, device, save_dir="results", inhouse_dir=None
-    # )
+    
+    input_image = Image.open(args.input_image_path)
+    # Get the width and height
+    width, height = input_image.size
+    
+    # Print the dimensions
+    print("Original Width:", width)
+    print("Original Height:", height)
     
     # Record start time
     start_time = time.time()
@@ -362,9 +371,19 @@ def main(args):
     image_alpha, glass_image = infer_and_post_process(
         args.input_image_path, model1, model2, device, save_dir="results", inhouse_dir=None
     )
+    
+    image_alpha = Image.fromarray(image_alpha*255)
+    glass_image = Image.fromarray(glass_image*255)
+    
+    # Resize the image back to its original dimensions
+    image_alpha = image_alpha.resize((width, height))
+    glass_image = glass_image.resize((width, height))
 
     # Record end time
     end_time = time.time()
+    
+    print(f"image_alpha_size: {image_alpha.size}")
+    print(f"glass_image_size: {glass_image.size}")
 
     # Calculate inference time
     inference_time = end_time - start_time
@@ -378,14 +397,16 @@ def main(args):
     glass_image_path = f"{filename}_glass_image.png"    
 
     # Save image_alpha and glass_image separately
-    cv2.imwrite(image_alpha_path, np.array(image_alpha * 255))
-    cv2.imwrite(glass_image_path, np.array(glass_image * 255))
+    cv2.imwrite(image_alpha_path, np.array(image_alpha))
+    cv2.imwrite(glass_image_path, np.array(glass_image))
+    # image_alpha.save(image_alpha_path)
+    # glass_image.save(glass_image_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Image Processing and Segmentation")
     parser.add_argument("input_image_path", type=str, help="Path to the input image")
-    parser.add_argument("--model1_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/production_code_base/d4seg/checkpoints/model_1_20230823_133015_last.ckpt", help="Path to the model1 checkpoint")
-    parser.add_argument("--model2_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/production_code_base/d4seg/checkpoints/model_2_20240102_155705_last.ckpt", help="Path to the model2 checkpoint")
+    parser.add_argument("--model1_ckpt", type=str, default="checkpoints/model_1_20230823_133015_last.ckpt", help="Path to the model1 checkpoint")
+    parser.add_argument("--model2_ckpt", type=str, default="checkpoints/model_2_20240102_155705_last.ckpt", help="Path to the model2 checkpoint")
     parser.add_argument("--image_alpha_path", type=str, default="image_alpha.png", help="Path to save the image_alpha output")
     parser.add_argument("--glass_image_path", type=str, default="glass_image.png", help="Path to save the glass_image output")
     parser.add_argument("--no_cuda", action="store_true", help="Flag to disable CUDA (use CPU)")
