@@ -236,12 +236,12 @@ def generate_glass_image(bgra):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     contourMask = cv2.erode(contourMask.copy(), kernel, iterations=2)
 
-    # r, g, b = 162, 194, 194
+    r, g, b = 162, 194, 194
     # r, g, b = 111, 133, 133
-    b, g, r = 111, 133, 133
-    a_value = 200
+    # b, g, r = 111, 133, 133
+    a_value = round(0.6* 255)
     
-    glassImg = np.full_like(bgra[:, :, :3], (b, g, r))
+    glassImg = np.full_like(bgra[:, :, :3], (r, g, b))
     glassImg = cv2.cvtColor(glassImg, cv2.COLOR_BGR2BGRA)
 
     glassMask = np.zeros_like(contourMask)
