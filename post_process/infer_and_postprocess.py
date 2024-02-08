@@ -1,25 +1,7 @@
 """
-Usage:
-python infer_and_postprocess.py input_image.jpg --model1_ckpt path/to/custom_model1_checkpoint.pth --model2_ckpt path/to/custom_model2_checkpoint.pth --output_path path/to/output_image.png
+usage example:
+python infer_and_postprocess.py input_image.jpg --model1_ckpt path/to/custom_model1_checkpoint.pth --model2_ckpt path/to/custom_model2_checkpoint.pth --output_path path/to/output/directory
 
-or
-
-python infer_and_postprocess.py input_image.jpg 
-
-Defaults for reference: 
-
-input_image_path = '/home/shravan/documents/deeplearning/github/alpha_matte_segmentation/notebooks/v2/Review_Dir/FootRest/Original/2a5e854530b04c8f86d1c622ab64f608.jpg'
-
-Model1 Checkpoint Path: /home/shravan/documents/deeplearning/github/segmentation_models/checkpoints/20230823/model_20230823_133015/last.ckpt
-
-==> checkpoints/model_1_20230823_133015_last.ckpt
-
-Model2 Checkpoint Path: /home/shravan/documents/deeplearning/github/alpha_matte_segmentation/trimap_generation/checkpoints//20240102/model_20240102_155705/last.ckpt
-
-==> checkpoints/model_2_20240102_155705_last.ckpt
-
-Example: 
-python infer_and_postprocess.py /home/shravan/documents/deeplearning/github/alpha_matte_segmentation/notebooks/v2/Review_Dir/FootRest/Original/2a5e854530b04c8f86d1c622ab64f608.jpg 
 """
 
 import os
@@ -36,38 +18,28 @@ from models.model_v2 import SegFormerLightning
 from torchvision import transforms
 import argparse
 
-
 import glob
 from tqdm import tqdm
 import shutil
-
-import torch
-from torchvision import transforms as T
-from torchvision.transforms import PILToTensor
-from torchvision import transforms
-
 
 import matplotlib.pyplot as plt
 import pytorch_lightning as pl
 import segmentation_models_pytorch as smp
 
 from pprint import pprint
-from torch.utils.data import Dataset,DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from PIL import Image
 import cv2
 import numpy as np
-import plotly.express as px
-from einops import rearrange
 import matplotlib.pyplot as plt
 
 from models.carseg import CarSegmentationModel
 from models.model_v2 import SegFormerLightning
 
 import time
+
 # Stage - I
-
-
 
 def preprocess(im_path, _H=1024, _W=1024):
     image = Image.open(im_path).convert('RGB')
@@ -96,8 +68,7 @@ def get_stage1_predicted_mask(model, img_path):
     
     return mask_array
 
-            
-def get_checkpoint(mit_b5_latest_path, best_or_last='best', base_ckpt_dir = "/home/shravan/documents/deeplearning/github/segmentation_models/checkpoints"):
+def get_checkpoint(mit_b5_latest_path, best_or_last='best', base_ckpt_dir="/home/shravan/documents/deeplearning/github/segmentation_models/checkpoints"):
     # Model checkpoint selection
     ckpt_dir = f"{base_ckpt_dir}/{mit_b5_latest_path}"
     best_ckpt_path = os.path.join(ckpt_dir, [p for p in os.listdir(ckpt_dir) if p.startswith('best')][0])
@@ -114,14 +85,17 @@ def get_model1(ckpt_path):
     model.load_state_dict(pretrained_model['state_dict'])
     return model    
 
-
+def get_model2(ckpt_path):
+    pretrained_model2 = torch.load(ckpt_path)
+    model_config2 = pretrained_model2['hyper_parameters']['config']
+    model2 = SegFormerLightning(model_config2)
+    model2.load_state_dict(pretrained_model2['state_dict'])
+    return model2
 
 # Concatenate along the channel axis (axis=1)
 def concat_images(rgb_image, trimap_image):
     concatenated_image = torch.cat((rgb_image, trimap_image), dim=0)
     return concatenated_image
-
-
 
 class Resize(object):
     def __init__(self, size, interpolation=cv2.INTER_LINEAR):
@@ -142,7 +116,6 @@ class Resize(object):
             sample["mask"] = mask
 
         return sample
-
 
 class ToTensor(object):
     def __init__(self):
@@ -172,7 +145,6 @@ class ToTensor(object):
 
         return sample
 
-
 def get_validation_augmentation(config):
     val_transform = [
         Resize(size=(config["resize_height"], config["resize_width"])),
@@ -190,6 +162,24 @@ def add_background(rgba_image_pil, bg_img_path=None):
     composite_image = Image.alpha_composite(bg_img_pil, rgba_image_pil)
     return composite_image
 
+def get_image_files(directory_path):
+    # Create a list to store the image file paths
+    image_files = []
+
+    # Define the allowed image file extensions (you can extend this list based on your requirements)
+    allowed_extensions = ['jpg', 'jpeg']
+
+    # Use the glob module to get all files matching the specified pattern
+    pattern = os.path.join(directory_path, '*.*')  # Match all files in the given directory
+    files = glob.glob(pattern)
+
+    # Iterate through the files and filter out non-image files
+    for file_path in files:
+        _, extension = os.path.splitext(file_path)
+        if extension.lower()[1:] in allowed_extensions:
+            image_files.append(file_path)
+
+    return image_files
 
 def compute_largest_segmentation(image_path, dilation_kernel_size=9, blur_kernel_size=1):
     image = cv2.imread(image_path, -1)
@@ -209,8 +199,7 @@ def compute_largest_segmentation(image_path, dilation_kernel_size=9, blur_kernel
 
     return result
 
-
-def generate_glass_image(bgra):
+def generate_glass_image(bgra, rgba_color=(162, 194, 194, 255), opacity=200):
     mask = bgra[:, :, 3].copy()
     imga = bgra.copy()
 
@@ -236,12 +225,9 @@ def generate_glass_image(bgra):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     contourMask = cv2.erode(contourMask.copy(), kernel, iterations=2)
 
-    # r, g, b = 162, 194, 194
-    r, g, b = 111, 133, 133
-    a_value = 200
-    
-    glassImg = np.full_like(bgra[:, :, :3], (b, g, r))
-    glassImg = cv2.cvtColor(glassImg, cv2.COLOR_BGR2BGRA)
+    r, g, b, a = rgba_color
+
+    glassImg = np.full_like(bgra[:, :, :4], (b, g, r, a))
 
     glassMask = np.zeros_like(contourMask)
 
@@ -251,7 +237,7 @@ def generate_glass_image(bgra):
     contours, hierarchy = cv2.findContours(alpha.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[-2:]
 
     for contour in contours:
-        cv2.drawContours(glassMask, [contour], -1, a_value, -1)
+        cv2.drawContours(glassMask, [contour], -1, opacity, -1)
 
     glassImg[:, :, 3] = glassMask
 
@@ -259,148 +245,88 @@ def generate_glass_image(bgra):
     imgaMask = cv2.medianBlur(imgaMask, 1)
     imga[:, :, 3] = imgaMask
     imga[np.where((imgaMask == 0))] = 0
-    
-    image_alpha = (imga * 255)#S.astype(np.uint8)
+
+    image_alpha = imga
     glass_image = glassImg
-    
+
     return image_alpha, glass_image
 
+def infer_and_post_process(input_image_path, model1, model2, device, save_dir="results"):
 
-def infer_and_post_process(input_image_path, model1, model2, device, bg_image_path=None, save_dir = "results", inhouse_dir=None):
-        
-    # stage-I
+    # Stage-I
     pred_mask1 = get_stage1_predicted_mask(model1, input_image_path)
 
-    #stage-II
+    # Stage-II
     image = cv2.imread(input_image_path)
+    input_height, input_width = image.shape[:2]  # Get input image dimensions
 
-    # ground truth 
-    filename, extension = os.path.splitext(os.path.basename(input_image_path))
-    
-    
-    gt_alpha_path = f"{inhouse_dir}/{filename}.jpg"
-    
-    if os.path.isfile(gt_alpha_path):
-        mask = cv2.imread(gt_alpha_path)
-        
-    else:
-        mask=None
+    # Ground truth
+    filename, _ = os.path.splitext(os.path.basename(input_image_path))
 
-    pred_mask1 = np.uint8(pred_mask1*255)
-    # trimap generation using stage-I prediction
-    # trimap = generate_trimap(pred_mask1)
-
-    # trimap = cv2.resize(trimap, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
-    trimap = cv2.resize(pred_mask1, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
+    pred_mask1 = np.uint8(pred_mask1 * 255)
+    # Trimap generation using stage-I prediction
+    trimap = cv2.resize(pred_mask1, (input_width, input_height), interpolation=cv2.INTER_AREA)
 
     test_augmentation = get_validation_augmentation(model2.config)
+    pre_sample = {'image': image, 'trimap': trimap}
 
-    pre_sample = {
-        'image': image,
-        'trimap': trimap,
-    }
-    
-    if mask is not None:
-        pre_sample.update({'mask': mask,})
-        
     pre_sample = test_augmentation(pre_sample)
-
     sample = dict()
     sample.update(pre_sample)
 
     sample["image"] = concat_images(sample["image"], sample["trimap"])
 
     x = sample['image']
-    x = rearrange(x,'c h w -> 1 c h w')
-
+    x = rearrange(x, 'c h w -> 1 c h w')
     x = x.to(device)
+
     with torch.no_grad():
         logits = model2(x)
 
-    pred_mask2 = logits.cpu().numpy().squeeze()*255
+    pred_mask2 = logits.cpu().numpy().squeeze() * 255
 
     x = rearrange(sample['image'].numpy(), "c h w -> h w c")
-    image, trimap = x[:,:,:3], x[:,:,3:]
+    image, trimap = x[:, :, :3], x[:, :, 3:]
 
     pred_mask1 = cv2.resize(pred_mask1, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
-    pred_mask1 = rearrange(pred_mask1, "h w -> h w 1")/255.
+    pred_mask1 = rearrange(pred_mask1, "h w -> h w 1") / 255.
     out1 = np.concatenate((image, pred_mask1), axis=-1)
 
-    pred_mask2 = rearrange(pred_mask2, "h w -> h w 1")/255.
+    pred_mask2 = rearrange(pred_mask2, "h w -> h w 1") / 255.
     out2 = np.concatenate((image, pred_mask2), axis=-1)
-    cv2.imwrite("temp_out.png",(out2*255).astype(np.uint8))
-    
-    #post-process begins 
+    cv2.imwrite("temp_out.png", (out2 * 255).astype(np.uint8))
+
+    # Post-processing begins
     result = compute_largest_segmentation("temp_out.png")
     image_alpha, glass_image = generate_glass_image(result)
-    
+
+    # Resize image_alpha and glass_image to input image dimensions
+    image_alpha = cv2.resize(image_alpha, (input_width, input_height))
+    glass_image = cv2.resize(glass_image, (input_width, input_height))
+
+    # Save the processed images
+    cv2.imwrite(os.path.join(save_dir, f"{filename}_transparent.png"), image_alpha)
+    cv2.imwrite(os.path.join(save_dir, f"{filename}_glass_image.png"), glass_image)
+
     # Remove the temporary file
     os.remove("temp_out.png")
-    
+
     return image_alpha, glass_image
 
-
-def main(args):
-    device = torch.device("cuda" 
-                          if torch.cuda.is_available() and not args.no_cuda 
-                          else "cpu")
-    
-    # Stage - I
-    model1 = get_model1(args.model1_ckpt)
-    model1 = model1.to(device)
-
-    # Stage - II
-    pretrained_model2 = torch.load(args.model2_ckpt)
-    model_config2 = pretrained_model2['hyper_parameters']['config']
-    model2 = SegFormerLightning(model_config2)
-    model2.load_state_dict(pretrained_model2['state_dict'])
-    model2 = model2.to(device)
-    
-    input_image = Image.open(args.input_image_path)
-    # Get the width and height
-    width, height = input_image.size
-    
-    # Record start time
-    start_time = time.time()
-
-    image_alpha, glass_image = infer_and_post_process(
-        args.input_image_path, model1, model2, device, save_dir="results", inhouse_dir=None
-    )
-    
-    image_alpha = Image.fromarray(image_alpha*255)
-    glass_image = Image.fromarray(glass_image*255)
-    
-    # Resize the image back to its original dimensions
-    image_alpha = image_alpha.resize((width, height))
-    glass_image = glass_image.resize((width, height))
-
-    # Record end time
-    end_time = time.time()
-
-    # Calculate inference time
-    inference_time = end_time - start_time
-    print(f"Inference time: {inference_time} seconds")
-    
-    # Extract filename without extension
-    filename, _ = os.path.splitext(os.path.basename(args.input_image_path))
-
-    # Save image_alpha and glass_image separately with the input image filename
-    image_alpha_path = f"{filename}_image_alpha.png"
-    glass_image_path = f"{filename}_glass_image.png"    
-
-    # Save image_alpha and glass_image separately
-    cv2.imwrite(image_alpha_path, np.array(image_alpha * 255))
-    cv2.imwrite(glass_image_path, np.array(glass_image * 255))
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Image Processing and Segmentation")
-    parser.add_argument("input_image_path", type=str, help="Path to the input image")
-    parser.add_argument("--model1_ckpt", type=str, default="checkpoints/model_1_20230823_133015_last.ckpt", help="Path to the model1 checkpoint")
-    parser.add_argument("--model2_ckpt", type=str, default="checkpoints/model_2_20240102_155705_last.ckpt", help="Path to the model2 checkpoint")
-    parser.add_argument("--image_alpha_path", type=str, default="image_alpha.png", help="Path to save the image_alpha output")
-    parser.add_argument("--glass_image_path", type=str, default="glass_image.png", help="Path to save the glass_image output")
-    parser.add_argument("--no_cuda", action="store_true", help="Flag to disable CUDA (use CPU)")
-
+    parser = argparse.ArgumentParser(description='Inference script for alpha matte segmentation.')
+    parser.add_argument('input_image_path', type=str, help='Path to the input image')
+    parser.add_argument('--model1_ckpt', type=str, default='/home/shravan/documents/deeplearning/github/segmentation_models/checkpoints/20230823/model_20230823_133015/last.ckpt', help='Path to the checkpoint of Model 1')
+    parser.add_argument('--model2_ckpt', type=str, default='/home/shravan/documents/deeplearning/github/alpha_matte_segmentation/trimap_generation/checkpoints//20240102/model_20240102_155705/last.ckpt', help='Path to the checkpoint of Model 2')
+    parser.add_argument('--output_path', type=str, default='results', help='Path to save the output image')
     args = parser.parse_args()
-    
-    main(args)
+
+    # Initialize device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Load models
+    model1 = get_model1(args.model1_ckpt).to(device)
+    model2 = get_model2(args.model2_ckpt).to(device)
+
+    # Run inference and post-processing
+    image_alpha, glass_image = infer_and_post_process(args.input_image_path, model1, model2, device, args.output_path)
