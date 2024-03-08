@@ -1,20 +1,7 @@
-"""
-Example:
-
-python anchoring.py transparent_image.png glass_image.png --save_dir ./infer_and_postprocess --max_width 1500 --max_height 1000 --center_x 700 --center_y 500 --crop_tight
-
-Example2:
-python anchoring.py ./infer_and_postprocess/transparent.png ./infer_and_postprocess/glass_image.png --crop_tight
-
-"""
-
-import os
-import argparse
 import cv2
-import numpy as np
 from PIL import Image
-
-import cv2
+import numpy as np
+import os
 import glob
 import time
 
@@ -153,49 +140,44 @@ def compose_images_with_overlay(bg_img_src, overlay_img_src, output_file, max_wi
 
         end = int(time.time() * 1000)
         print(f"Execution time: {end - start} ms")
-        return canvas
 
     except Exception as e:
         raise e
 
-def process_overlay_images(transparent_image_path, glass_image_path, save_dir='./infer_and_postprocess', max_width=1450, max_height=1025, center_x=800, center_y=640, crop_tight=True, background_image_path="/home/shravan/documents/deeplearning/datasets/segmentations_samples/backgrounds/Subrata/Background_38.png"):
-    merged_image_path = os.path.join(save_dir, 'merged_image.png')
-    cropped_image_path = os.path.join(save_dir, 'tight_cropped_image.png')
-    output_image_path = os.path.join(save_dir, 'fg_overlay_on_bg_image.png')
-
+        
+def main(transparent_image_path, glass_image_path, background_image_path, max_width = 1450, max_height = 1025, center_x = 800,center_y = 640, crop_tight=True):
+    
+    filename, extension = os.path.splitext(os.path.basename(transparent_image_path))
+        
+    # Load images using cv2
     image_alpha = cv2.imread(transparent_image_path, cv2.IMREAD_UNCHANGED)
     glass_image = cv2.imread(glass_image_path, cv2.IMREAD_UNCHANGED)
-
+    
+    # Convert images to PIL format
     image_alpha = Image.fromarray(image_alpha)
     glass_image = Image.fromarray(glass_image)
 
+    merged_image_path = f'{filename}_merged_image.png'
+    output_image_path =  f'{filename}_fg_overlay_on_bg_image.png'
+    
+    # Merge images using PIL
     merged_image = Image.alpha_composite(glass_image, image_alpha)
+    # Save merged image using cv2
     cv2.imwrite(merged_image_path, np.array(merged_image))
-
     if crop_tight:
         trimmed_image = trim_space(merged_image_path, max_width, max_height)
-        cv2.imwrite(cropped_image_path, np.array(trimmed_image)) 
-        fg_on_bg = compose_images_with_overlay(background_image_path, cropped_image_path, output_image_path, max_width, max_height, center_x, center_y)
-    else:
-        fg_on_bg = compose_images_with_overlay(background_image_path, merged_image_path, output_image_path, max_width, max_height, center_x, center_y)
+        cv2.imwrite(merged_image_path, np.array(trimmed_image)) 
 
-    return fg_on_bg
+    print(f"Composite Image Saved at: {merged_image_path}")    
 
-def main():
-    parser = argparse.ArgumentParser(description='Process overlay images')
-    parser.add_argument('transparent_image_path', type=str, help='Path to the transparent image')
-    parser.add_argument('glass_image_path', type=str, help='Path to the glass image')
-    parser.add_argument('--save_dir', type=str, default='./infer_and_postprocess', help='Directory to save the processed images')
-    parser.add_argument('--max_width', type=int, default=1450, help='Maximum width for the processed images')
-    parser.add_argument('--max_height', type=int, default=1025, help='Maximum height for the processed images')
-    parser.add_argument('--center_x', type=int, default=800, help='X coordinate for centering the images')
-    parser.add_argument('--center_y', type=int, default=640, help='Y coordinate for centering the images')
-    parser.add_argument('--crop_tight', action='store_true', help='Whether to crop the images tightly')
-    parser.add_argument('--background_image_path', type=str, default="/home/shravan/documents/deeplearning/datasets/segmentations_samples/backgrounds/Subrata/Background_38.png", help='Path to the background image')
-
-    args = parser.parse_args()
-
-    process_overlay_images(args.transparent_image_path, args.glass_image_path, args.save_dir, args.max_width, args.max_height, args.center_x, args.center_y, args.crop_tight, args.background_image_path)
-
+    compose_images_with_overlay(background_image_path, merged_image_path, output_image_path, max_width, max_height, center_x, center_y)
+    
 if __name__ == "__main__":
-    main()
+    
+    transparent_image_path = "/home/shravan/documents/deeplearning/github/production_code_base/d4seg/post_process/results/window_transparency_R162_G194_B194_v1/FootRest/0792218628e54cd29783e5db7db3902d/0792218628e54cd29783e5db7db3902d_transparent.png"
+    
+    glass_image_path = "/home/shravan/documents/deeplearning/github/production_code_base/d4seg/post_process/results/window_transparency_R162_G194_B194_v1/FootRest/0792218628e54cd29783e5db7db3902d/0792218628e54cd29783e5db7db3902d_glass_image.png"
+    
+    background_image_path = "/home/shravan/documents/deeplearning/datasets/segmentations_samples/backgrounds/Subrata/Background_38.png"
+    
+    main(transparent_image_path, glass_image_path, background_image_path, max_width = 1450, max_height = 1025, center_x = 800,center_y = 640, crop_tight=True)
