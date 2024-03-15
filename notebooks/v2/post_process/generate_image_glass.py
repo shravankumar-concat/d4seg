@@ -1,6 +1,6 @@
 """
 Example:
-python generate_image_glass.py /home/shravan/documents/deeplearning/github/alpha_matte_segmentation/notebooks/v2/Review_Dir/FootRest/Original/2a5e854530b04c8f86d1c622ab64f608.jpg 
+python infer_and_postprocess.py /home/shravan/documents/deeplearning/github/alpha_matte_segmentation/notebooks/v2/Review_Dir/FootRest/Original/2a5e854530b04c8f86d1c622ab64f608.jpg 
 """
 
 import os
@@ -16,7 +16,6 @@ from models.carseg import CarSegmentationModel
 from models.model_v2 import SegFormerLightning
 from torchvision import transforms
 import argparse
-from argparse import ArgumentParser
 
 import glob
 from tqdm import tqdm
@@ -182,7 +181,7 @@ def get_image_files(directory_path):
 
     return image_files
 
-def compute_largest_segmentation(image_path, dilation_kernel_size=9, blur_kernel_size=1):
+def compute_largest_segmentation(image_path, dilation_kernel_size=0, blur_kernel_size=1):
     image = cv2.imread(image_path, -1)
     mask = image[:, :, 3]
     
@@ -201,7 +200,7 @@ def compute_largest_segmentation(image_path, dilation_kernel_size=9, blur_kernel
 
     return result
 
-def generate_glass_image(bgra, rgba_color=(162, 194, 194, 255), opacity=120):
+def generate_glass_image(bgra, opacity=120):
     mask = bgra[:, :, 3].copy()
     imga = bgra.copy()
 
@@ -227,33 +226,61 @@ def generate_glass_image(bgra, rgba_color=(162, 194, 194, 255), opacity=120):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     contourMask = cv2.erode(contourMask.copy(), kernel, iterations=2)
 
-    r, g, b, a = rgba_color
 
-    glassImg = np.full_like(bgra[:, :, :4], (b, g, r, a))
-
+    glassImg = imga
+    glassImg = cv2.cvtColor(glassImg, cv2.COLOR_BGR2BGRA)
+    
     glassMask = np.zeros_like(contourMask)
-
+    
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     alpha = cv2.dilate(contourMask.copy(), kernel, iterations=2)
-
     contours, hierarchy = cv2.findContours(alpha.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[-2:]
 
     for contour in contours:
         cv2.drawContours(glassMask, [contour], -1, opacity, -1)
 
     glassImg[:, :, 3] = glassMask
+    glass_image = glassImg
 
+    return glass_image
+
+def compute_glass_rgba_color(glass_image):
+    # Calculate the mean color of the masked image
+    return cv2.mean(glass_image, mask=glass_image[:,:,3])
+
+def glass_image_color_norm(bgra, glass_image, bgra_color):
+    b, g, r, a = bgra_color
+    glassImg = np.full_like(bgra, (b, g, r, a))
+    glassImg[:,:,3] = glass_image[:,:,3]
+    return glassImg
+    
+
+def glass_transform(bgra, opacity):
+    glass_image = generate_glass_image(bgra, opacity)
+    bgra_color = compute_glass_rgba_color(glass_image)
+    transformed_glass_image = glass_image_color_norm(bgra, glass_image, bgra_color)
+    return transformed_glass_image
+
+def image_transform(bgra):
+    imga = bgra.copy()
     imgaMask = imga[:, :, 3]
     imgaMask = cv2.medianBlur(imgaMask, 1)
     imga[:, :, 3] = imgaMask
     imga[np.where((imgaMask == 0))] = 0
-
     image_alpha = imga
-    glass_image = glassImg
+    return image_alpha
+
+def get_image_and_glass(bgra, opacity=120):
+    
+    image_alpha = image_transform(bgra)
+    glass_image = glass_transform(bgra, opacity)
 
     return image_alpha, glass_image
 
-def generate_overlay_images(input_image_path, model1, model2, save_dir='./infer_and_postprocess', device='cuda', dilation_kernel_size=9, blur_kernel_size=1, rgba_color=(162, 194, 194, 0), opacity=120):
+
+
+def generate_overlay_images(input_image_path, model1, model2, save_dir='./infer_and_postprocess', device='cuda', dilation_kernel_size=9, blur_kernel_size=1, opacity=120):
+    """Generates overlay images using two segmentation models."""
     filename, _ = os.path.splitext(os.path.basename(input_image_path))
     # save_dir = os.path.join(save_dir, filename)
 
@@ -320,7 +347,7 @@ def generate_overlay_images(input_image_path, model1, model2, save_dir='./infer_
 
     result = cv2.imread(largest_segmentation_path, -1)
 
-    image_alpha, glass_image = generate_glass_image(result, rgba_color, opacity)
+    image_alpha, glass_image = get_image_and_glass(result, opacity)
 
     image_alpha = cv2.resize(image_alpha, (image.shape[1], image.shape[0]))
     glass_image = cv2.resize(glass_image, (image.shape[1], image.shape[0]))
@@ -338,9 +365,24 @@ def generate_overlay_images(input_image_path, model1, model2, save_dir='./infer_
         'glass_image_path': glass_image_path
     }
 
+import os
+import wget
+def download_from_url(url):
+    basename = os.path.basename(url)
+    filename, _ = os.path.splitext(basename)
+    print(filename)
+
+    if not os.path.isfile(basename):
+        print(f"Downloading {basename}")
+        wget.download(url)
+    else:
+        print(f"File {basename} already exists.")
+    return basename
+
 
 def main():
-    parser = ArgumentParser(description="Generate overlay images using two segmentation models")
+    """Main function for running the script."""
+    parser = argparse.ArgumentParser(description="Generate overlay images using two segmentation models")
     parser.add_argument("input_image_path", type=str, help="Path to the input image")
     parser.add_argument("--model1_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/segmentation_models/checkpoints/20230823/model_20230823_133015/last.ckpt", help="Path to the checkpoint of model 1")
     parser.add_argument("--model2_ckpt", type=str, default="/home/shravan/documents/deeplearning/github/alpha_matte_segmentation/trimap_generation/checkpoints//20240102/model_20240102_155705/last.ckpt", help="Path to the checkpoint of model 2")
@@ -348,8 +390,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use (cuda or cpu)")
     parser.add_argument("--dilation_kernel_size", type=int, default=9, help="Size of the dilation kernel for largest segmentation computation")
     parser.add_argument("--blur_kernel_size", type=int, default=1, help="Size of the blur kernel for largest segmentation computation")
-    parser.add_argument("--rgba_color", type=int, nargs=4, default=(162, 194, 194, 0), help="RGBA color for the glass effect")
-    parser.add_argument("--opacity", type=int, default=120, help="Opacity for the glass effect")
+    parser.add_argument("--opacity", type=int, default=180, help="Opacity for the glass effect")
 
     args = parser.parse_args()
 
@@ -359,11 +400,11 @@ def main():
     # Load models
     model1 = get_model1(args.model1_ckpt).to(args.device)
     model2 = get_model2(args.model2_ckpt).to(args.device)
-
+    
     # Generate overlay images
     overlay_images = generate_overlay_images(
         args.input_image_path, model1, model2, args.save_dir, args.device,
-        args.dilation_kernel_size, args.blur_kernel_size, args.rgba_color, args.opacity
+        args.dilation_kernel_size, args.blur_kernel_size, args.opacity
     )
 
     print("Overlay images saved in:", args.save_dir)
